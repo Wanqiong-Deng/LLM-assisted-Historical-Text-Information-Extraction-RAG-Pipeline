@@ -52,7 +52,7 @@ def load_and_sample(input_files_dict):
 
 def start_human_labeling(results_dict):
     final_dfs = []
-    global_counter = 1 # 全局序号
+    global_counter = 1 
     
     for label, df in results_dict.items():
         print(f"\n" + "="*30)
