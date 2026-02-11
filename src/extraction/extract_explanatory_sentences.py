@@ -64,7 +64,6 @@ def check_strong_by_regex(text):
     return False
 
 def call_api_single(placename, text):
-    """单条调用，极高容错"""
     payload = {
         "model": SELECTED_MODEL,
         "messages": [
@@ -118,7 +117,7 @@ def main():
         else:
             label, evidence = call_api_single(placename, text)
             mode = "[LLM  ]"
-            time.sleep(0.6) # 稳健频率
+            time.sleep(0.6) 
 
         print(f"[{idx+1}/{len(df)}] {mode} {placename} -> {label}")
         
