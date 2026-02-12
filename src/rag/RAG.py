@@ -7,8 +7,8 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 import os
 
-os.environ["OPENAI_API_KEY"] = "sk-gswitcfpsevlgfleazpwptqtpuolngnbzqvtbkeuexeqiyid"
-os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
+os.environ["OPENAI_API_KEY"] = ""
+os.environ["OPENAI_BASE_URL"] = ""
 
 def run_lcel_rag():
 
