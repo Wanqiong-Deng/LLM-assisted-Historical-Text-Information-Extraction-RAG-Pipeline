@@ -9,8 +9,8 @@ os.environ["PYTHONIOENCODING"] = "utf-8"
 
 INPUT_CSV = "placename_records_resolved.csv"
 PROGRESS_FILE = "batch_classification_results.csv"
-API_KEY = "sk-gswitcfpsevlgfleazpwptqtpuolngnbzqvtbkeuexeqiyid"
-API_URL = "https://api.siliconflow.cn/v1/chat/completions"
+API_KEY = ""
+API_URL = ""
 SELECTED_MODEL = 'deepseek-ai/DeepSeek-V3' 
 
 STRONG_PATTERNS = [r"因.*?名之", r"因.*?為名", r"因.*?故名", r"以.*?為名", r"取.*?之義", r"取.*?名之", r"故名", r"故曰", r"改曰"]
