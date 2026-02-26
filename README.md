@@ -33,4 +33,26 @@ Each placename record is classified into one of three categories:
 This is a **logic-oriented classification task**, not topic or sentiment classification.
 
 ## System Pipeline
-
+📄 HTML Source Files
+       ↓
+[1] HTML Conversion (html_converter.py)
+       ↓
+📄 Clean Text Files
+       ↓
+[2] Placename Extraction (placename_extractor.py)
+       ↓
+📊 Placename Records CSV
+       ↓
+[3] LLM Classification (llm_classifier.py)
+    ├── Regex patterns (STRONG pre-filter)
+    └── LLM fallback (WEAK/NONE)
+       ↓
+📊 Classified Results CSV
+       ↓
+[4] Data Analysis (data_analyzer.py)
+    ├── Statistical summaries
+    ├── Subtype mining (STRONG logic types, WEAK sources)
+    └── Visualizations
+       ↓
+[5] RAG-based Retrieval (rag_system.py)
+    └── Semantic search & Q&A
