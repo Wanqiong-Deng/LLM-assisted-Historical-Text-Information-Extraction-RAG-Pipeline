@@ -1,121 +1,58 @@
-# Toponymic-Explanation-Identification-System
+# Toponymic Explanation Identification System
 
-A hybrid NLP system for extracting and classifying toponymic explanations from Classical Chinese texts, combining rule-based logic, large language models, and retrieval-augmented inspection.
+A hybrid NLP system for extracting and classifying toponymic explanations from Classical Chinese texts, combining rule-based logic, large language models, and retrieval-augmented analysis.
 
----
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-This project implements an end-to-end pipeline for identifying **toponymic explanations**—passages that explain why a place is named in a certain way—from historical Chinese texts.
+This project implements an end-to-end pipeline for identifying toponymic explanations—passages that explain why a place is named in a certain way—from historical Chinese texts. The system focuses on high-precision extraction, explainable decision logic, and scalable batch processing.
 
-The system focuses on:
-- high-precision extraction,
-- explainable decision logic,
-- and scalable batch processing.
-
-Although the case study is Classical Chinese geographical records, the architecture is applicable to other **low-resource, rule-sensitive information extraction tasks**.
-
----
+Although the case study focuses on Classical Chinese geographical records, the architecture is applicable to other low-resource, rule-sensitive information extraction tasks.
 
 ## Key Features
 
-- Hybrid rule-based + LLM classification
-- Mandatory evidence span extraction
-- Explicit handling of cross-entry narration
-- Resume-safe batch processing for large corpora
-- Post-hoc pattern mining and quantitative analysis
-- RAG-based semantic retrieval for inspection (non-decisional)
-
----
+- **Hybrid rule-based + LLM classification** - Regex patterns for high-precision cases, LLM for ambiguous ones
+- **Evidence span extraction** - Every classification decision includes supporting textual evidence
+- **Cross-entry narration handling** - Resolves naming targets across multiple text entries
+- **Resume-safe batch processing** - Progress saving enables processing of large corpora
+- **Statistical analysis & visualization** - Post-hoc pattern mining and quantitative insights
+- **RAG-based semantic retrieval** - Natural language querying over extracted records
 
 ## Classification Schema
 
 Each placename record is classified into one of three categories:
 
-- **STRONG** — the author directly explains the naming reason using causal or definitional language  
-- **WEAK** — a naming explanation is present but attributed to cited sources  
-- **NONE** — descriptive geographic or administrative information without naming logic
+| Category | Description | Example |
+|----------|-------------|---------|
+| **STRONG** | Author directly explains naming reason using causal language | "因山名之" (named because of the mountain) |
+| **WEAK** | Naming explanation is present but attributed to cited sources | "《水經注》云：……" (according to Shuijingzhu...) |
+| **NONE** | Descriptive geographic/administrative info without naming logic | "縣東南五十里" (50 li southeast of the county) |
 
 This is a **logic-oriented classification task**, not topic or sentiment classification.
 
----
-
 ## System Pipeline
-
-The overall workflow is shown below.
-
-【Insert Technical Pipeline Diagram Here】
-
-1. HTML text normalization and cleanup  
-2. Placename detection and context aggregation  
-3. Naming target resolution across entries  
-4. Hybrid classification (regex-first, LLM fallback)  
-5. Statistical analysis and visualization
-
-Each stage produces structured outputs that can be inspected independently.
-
----
-
-## Code Structure
-
-【Insert Code Structure Diagram Here】
-
-### Core Modules
-
-- `transport_to_txt.py`  
-  Cleans HTML-based historical texts into normalized UTF-8 plain text.
-
-- `extract_placename_records.py`  
-  Identifies placename entries using suffix constraints and structural heuristics, then aggregates multi-line contexts.
-
-- `resolve_naming_target.py`  
-  Corrects misalignment caused by cross-entry narration through contextual back-reference.
-
-- `extract_explanatory_sentence.py`  
-  Implements the hybrid decision engine:
-  - high-precision regex rules for canonical patterns  
-  - LLM-based semantic classification for ambiguous cases  
-  - evidence span extraction and checkpoint-based resume
-
----
-
-### Analysis & Evaluation
-
-- `analyze_results.py`  
-  Generates distribution statistics and publication-ready visualizations.
-
-- `deep_data_mining.py`  
-  Performs rule-guided post-hoc mining to decompose STRONG / WEAK / NONE classes into interpretable subtypes and produces consolidated analytical figures.
-
-- `manual_evaluation.py`  
-  Evaluates classification accuracy against human-annotated samples.
-
----
-
-### Retrieval-Augmented Inspection
-
-- `RAG.py`  
-  Enables semantic retrieval over extracted records for debugging and exploratory analysis.  
-  *Note: this module does not participate in classification decisions.*
-
----
-
-## Outputs
-
-- Full classification results with evidence spans (`CSV`)
-- Category-specific exports
-- Statistical summaries and figures
-- Reproducible intermediate artifacts
-
-Large generated files are excluded from version control and can be reproduced via the pipeline.
-
----
-
-## Design Considerations
-
-- Interpretability-first hybrid architecture  
-- Deterministic rules with probabilistic fallback  
-- Explicit error analysis and failure awareness  
-- Clear separation between decision logic and inspection tools  
-
----
+📄 HTML Source Files
+       ↓
+[1] HTML Conversion (html_converter.py)
+       ↓
+📄 Clean Text Files
+       ↓
+[2] Placename Extraction (placename_extractor.py)
+       ↓
+📊 Placename Records CSV
+       ↓
+[3] LLM Classification (llm_classifier.py)
+    ├── Regex patterns (STRONG pre-filter)
+    └── LLM fallback (WEAK/NONE)
+       ↓
+📊 Classified Results CSV
+       ↓
+[4] Data Analysis (data_analyzer.py)
+    ├── Statistical summaries
+    ├── Subtype mining (STRONG logic types, WEAK sources)
+    └── Visualizations
+       ↓
+[5] RAG-based Retrieval (rag_system.py)
+    └── Semantic search & Q&A
