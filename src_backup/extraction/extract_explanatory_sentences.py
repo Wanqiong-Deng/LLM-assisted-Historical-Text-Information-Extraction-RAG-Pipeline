@@ -9,8 +9,8 @@ os.environ["PYTHONIOENCODING"] = "utf-8"
 
 INPUT_CSV = "placename_records_resolved.csv"
 PROGRESS_FILE = "batch_classification_results.csv"
-API_KEY = "sk-gswitcfpsevlgfleazpwptqtpuolngnbzqvtbkeuexeqiyid"
-API_URL = "https://api.siliconflow.cn/v1/chat/completions"
+API_KEY = ""
+API_URL = ""
 SELECTED_MODEL = 'deepseek-ai/DeepSeek-V3' 
 
 STRONG_PATTERNS = [r"因.*?名之", r"因.*?為名", r"因.*?故名", r"以.*?為名", r"取.*?之義", r"取.*?名之", r"故名", r"故曰", r"改曰"]
@@ -64,7 +64,6 @@ def check_strong_by_regex(text):
     return False
 
 def call_api_single(placename, text):
-    """单条调用，极高容错"""
     payload = {
         "model": SELECTED_MODEL,
         "messages": [
@@ -118,7 +117,7 @@ def main():
         else:
             label, evidence = call_api_single(placename, text)
             mode = "[LLM  ]"
-            time.sleep(0.6) # 稳健频率
+            time.sleep(0.6) 
 
         print(f"[{idx+1}/{len(df)}] {mode} {placename} -> {label}")
         
