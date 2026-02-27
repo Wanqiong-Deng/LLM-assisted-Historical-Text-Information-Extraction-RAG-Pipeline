@@ -1,9 +1,9 @@
 """
-增强版RAG系统 - 整合数据分析洞察
-新增功能：
-1. 同时检索原始地名记录和分析洞察
-2. 支持统计类问题（如"有多少条STRONG记录？"）
-3. 智能路由：根据问题类型选择合适的知识源
+完整改进版RAG系统
+保留你所有原有功能，新增：
+1. 相似度阈值检查
+2. 问题改写重试
+3. 防止LLM胡编乱造
 """
 
 import pandas as pd
@@ -21,7 +21,11 @@ Config.setup_environment()
 
 
 class EnhancedRAGSystem:
-    """增强版RAG系统 - 整合地名数据和分析洞察"""
+    """改进版RAG系统 - 在原有基础上新增相似度检查"""
+    
+    # 新增配置
+    SIMILARITY_THRESHOLD = 0.3  # 相似度阈值
+    MAX_REWRITE_ATTEMPTS = 1    # 最大改写次数
     
     def __init__(self, 
                  data_csv: str = Config.BATCH_CLASSIFICATION,
@@ -75,7 +79,7 @@ class EnhancedRAGSystem:
         
         # 3. 初始化LLM
         self.llm = ChatOpenAI(
-            model= Config.RAG_MODEL,
+            model=Config.RAG_MODEL,
             temperature=0.1,
             max_tokens=2048
         )
@@ -136,9 +140,9 @@ class EnhancedRAGSystem:
                 ))
                 insights_count += 1
             
-            print(f"    已加载 {insights_count} 条分析洞察")
+            print(f"  ✓ 已加载 {insights_count} 条分析洞察")
         else:
-            print(f"     未找到分析洞察文件: {self.insights_csv}")
+            print(f"  ⚠️  未找到分析洞察文件: {self.insights_csv}")
             print(f"     请先运行 step4_data_analyzer.py 生成分析结果")
         
         # 3. 添加总体摘要文档（方便回答宏观问题）
@@ -162,7 +166,7 @@ class EnhancedRAGSystem:
                 }
             ))
         
-        print(f" 构建向量库: 共 {len(documents)} 条文档")
+        print(f"📦 构建向量库: 共 {len(documents)} 条文档")
         
         return FAISS.from_documents(documents, self.embeddings)
     
@@ -204,24 +208,144 @@ class EnhancedRAGSystem:
             | StrOutputParser()
         )
     
-    # 在 RAG.py 里的建议修改逻辑
+    # ==================== 新增方法 ====================
+    
+    def _search_with_similarity_scores(self, query: str, k: int = 6):
+        """
+        检索并返回相似度分数
+        
+        Returns:
+            [(Document, similarity_score), ...]
+            similarity_score: 0-1之间，越大越相似
+        """
+        # FAISS返回的是距离（越小越相似），转换为相似度
+        docs_and_distances = self.vectorstore.similarity_search_with_score(query, k=k)
+        
+        # 转换：similarity = 1 / (1 + distance)
+        docs_with_similarity = []
+        for doc, distance in docs_and_distances:
+            similarity = 1.0 / (1.0 + distance)
+            docs_with_similarity.append((doc, similarity))
+        
+        return docs_with_similarity
+    
+    def _rewrite_question(self, original_question: str) -> str:
+        """
+        改写问题（让LLM优化表述）
+        
+        例子：
+        - "这地儿叫啥？" → "这个地名的由来是什么？"
+        """
+        rewrite_prompt = f"""你是问题优化助手。用户的问题可能表达不够准确，请改写成更适合检索古籍地名数据的形式。
+
+原始问题：{original_question}
+
+改写要求：
+1. 保持问题核心意图
+2. 使用规范表达
+3. 如果涉及地名，明确说明"地名的由来"或"命名原因"
+4. 只返回改写后的问题，不要解释
+
+改写后："""
+        
+        response = self.llm.invoke(rewrite_prompt)
+        rewritten = response.content if hasattr(response, 'content') else str(response)
+        
+        print(f"  🔄 问题改写: {original_question} → {rewritten}")
+        return rewritten.strip()
+    
+    # ==================== 改进的query方法 ====================
+    
     def query(self, user_query: str):
+        """
+        改进版查询 - 新增相似度阈值检查
+        
+        流程：
+        1. 检查问题类型（统计 vs 具体地名）
+        2. 执行检索
+        3. [新增] 检查相似度
+        4. [新增] 相似度低 → 改写问题重试
+        5. [新增] 仍然低 → 返回"检索不到"
+        6. 相似度OK → 生成答案
+        """
         q_type = self.get_question_type(user_query)
         
+        # 统计类问题：直接用分析洞察
         if q_type == "statistical":
             insights_df = pd.read_csv(self.insights_csv)
-
             context = "以下是全量数据的统计洞察报告：\n" + insights_df.to_string()
-        else:
-            docs = self.vectorstore.similarity_search(user_query, k=Config.RAG_RETRIEVAL_K)
-            context = "\n".join([d.page_content for d in docs])
+            
+            full_prompt = f"根据以下统计信息回答问题：\n\n{context}\n\n问题：{user_query}"
+            response = self.llm.invoke(full_prompt)
+            if hasattr(response, 'content'):
+                return response.content
+            return str(response)
+        
+        # 具体地名问题：需要相似度检查
+        print(f"\n🔍 查询: {user_query}")
+        
+        # 第1次检索
+        docs_with_sim = self._search_with_similarity_scores(user_query, k=Config.RAG_RETRIEVAL_K)
+        max_similarity = max([sim for _, sim in docs_with_sim])
+        
+        print(f"  📊 最高相似度: {max_similarity:.3f}")
+        
+        # 检查相似度
+        if max_similarity < self.SIMILARITY_THRESHOLD:
+            print(f"  ⚠️  相似度低于阈值 {self.SIMILARITY_THRESHOLD}")
+            
+            # 尝试改写问题（只试1次，防止套娃）
+            print(f"  🔄 尝试改写问题...")
+            rewritten_question = self._rewrite_question(user_query)
+            
+            # 第2次检索
+            docs_with_sim = self._search_with_similarity_scores(rewritten_question, k=Config.RAG_RETRIEVAL_K)
+            max_similarity = max([sim for _, sim in docs_with_sim])
+            
+            print(f"  📊 改写后相似度: {max_similarity:.3f}")
+            
+            # 仍然太低 → 放弃
+            if max_similarity < self.SIMILARITY_THRESHOLD:
+                print(f"  ❌ 改写后仍低于阈值")
+                
+                return f"""抱歉，未能检索到与'{user_query}'相关的内容。
 
-        # 最后统一交给 Prompt 生成回答
-        full_prompt = f"根据以下参考信息回答问题：\n\n{context}\n\n问题：{user_query}"
+💡 可能的原因：
+1. 您的问题可能不在古籍地名数据范围内
+2. 可以尝试更换表述方式
+3. 确认地名是否在数据库中
+
+📚 本系统支持的查询类型：
+- 具体地名的由来（如"隋县的由来是什么？"）
+- 统计类问题（如"有多少条STRONG记录？"）"""
+            else:
+                print(f"  ✅ 改写后相似度可接受")
+                question_to_use = rewritten_question
+        else:
+            print(f"  ✅ 相似度可接受")
+            question_to_use = user_query
+        
+        # 相似度OK，生成答案
+        docs = [doc for doc, _ in docs_with_sim]
+        context = "\n\n".join([doc.page_content for doc in docs])
+        
+        full_prompt = f"""根据以下检索到的古籍地名信息回答问题：
+
+{context}
+
+问题：{question_to_use}
+
+回答要求：
+- 基于检索到的信息回答
+- 引用来源文献
+- 如果信息不完整，说明局限性"""
+
         response = self.llm.invoke(full_prompt)
         if hasattr(response, 'content'):
-                    return response.content
+            return response.content
         return str(response)
+    
+    # ==================== 保留原有方法 ====================
     
     def search_documents(self, query: str, k: int = 6):
         """
@@ -290,11 +414,13 @@ def run_interactive_session():
     rag.setup()
     
     print("\n" + "="*60)
-    print("  古籍地名考据系统（增强版）")
+    print("🏛️  古籍地名考据系统（增强版）")
     print("="*60)
-    print("\n 提示:")
+    print("\n💡 提示:")
     print("  • 可以询问具体地名的命名由来")
     print("  • 也可以询问统计信息（如'有多少条STRONG记录？'）")
+    print("  • [新功能] 相似度阈值检查，防止胡编乱造")
+    print("  • [新功能] 自动改写问题重试")
     print("  • 输入 'exit' 或 'quit' 退出")
     print("  • 输入 'test' 查看示例问题")
     print("\n" + "="*60)
@@ -317,7 +443,7 @@ def run_interactive_session():
             print("  1. 京师这个地名的由来是什么？")
             print("  2. 数据集中有多少条STRONG类记录？")
             print("  3. 命名逻辑主要有哪些类型？")
-            print("  4. WEAK类记录主要引用了哪些典籍？")
+            print("  4. 秦始皇的生日是几号？  ← 测试相似度检查")
             continue
         
         # 显示问题类型
@@ -327,20 +453,15 @@ def run_interactive_session():
         else:
             print("  [具体地名问题]")
         
-        print("  正在检索并分析...")
-        
         try:
             # 执行查询
             answer = rag.query(user_input)
             
-            if hasattr(answer, 'content'):
-                print("\n" + "-"*60)
-                print(" 回答:")
-                print("-"*60)
-                print(answer)
-                print("-"*60)
-            else:
-                print(answer)
+            print("\n" + "-"*60)
+            print("📖 回答:")
+            print("-"*60)
+            print(answer)
+            print("-"*60)
             
         except Exception as e:
             print(f"\n❌ 发生错误: {e}")
