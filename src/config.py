@@ -18,8 +18,8 @@ class Config:
     PROJECT_ROOT = Path(__file__).parent
      
     # ==================== API配置 ====================
-    API_KEY = "sk-gswitcfpsevlgfleazpwptqtpuolngnbzqvtbkeuexeqiyid"
-    API_BASE_URL = "https://api.siliconflow.cn/v1"
+    API_KEY = ""
+    API_BASE_URL = ""
     
     # ==================== 模型配置 ====================
     

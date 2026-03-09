@@ -56,3 +56,4 @@ This is a **logic-oriented classification task**, not topic or sentiment classif
        ↓
 [5] RAG-based Retrieval (rag_system.py)
     └── Semantic search & Q&A
+[6] Streamlit UI
