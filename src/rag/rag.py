@@ -1,6 +1,5 @@
 import pandas as pd
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 import os
@@ -123,7 +122,7 @@ class RAGSystem:
         return results
     
     @traceable(name="RAG_Query_Process", run_type="chain")
-    def query(self, user_query: str):
+    def query(self, user_query: str, stream: bool = False):
         """查询"""
         q_type = self.get_question_type(user_query)
         
@@ -134,10 +133,11 @@ class RAGSystem:
             context = "以下是全量数据的统计洞察报告：\n" + insights_df.to_string()
             
             full_prompt = f"根据以下统计信息回答问题：\n\n{context}\n\n问题：{user_query}"
-            response = self.llm.invoke(full_prompt)
-            if hasattr(response, 'content'):
-                return response.content
-            return str(response)
+            if stream:
+                return self._stream_response(full_prompt)
+            else:
+                response = self.llm.invoke(full_prompt)
+                return response.content if hasattr(response, 'content') else str(response)
         
         # 具体地名问题
         print(f"\n🔍 [具体地名问题] 查询: {user_query}")
@@ -185,7 +185,7 @@ class RAGSystem:
 - 引用来源文献
 - 不用区分繁体和简体
 P.S.：请注意检索到的信息中的标签
-‘STRONG
+STRONG
 满足以下全部条件：
 1. 文本中明确给出地名命名原因（因、故、以、取、改曰等）。
 2. 命名解释为作者直接陈述，而非转述。
@@ -212,12 +212,20 @@ NONE
 
 请严格区分【作者判断】与【作者记录他人说法】。’
 """
+        if stream:
+            return self._stream_response(full_prompt)
+        else:
+            response = self.llm.invoke(full_prompt)
+            return response.content if hasattr(response, 'content') else str(response)
 
-        response = self.llm.invoke(full_prompt)
-        if hasattr(response, 'content'):
-            return response.content
-        return str(response)
-    
+    # 3. 新增私有方法
+    def _stream_response(self, prompt: str):
+        """流式生成器"""
+        for chunk in self.llm.stream(prompt):
+            # LangChain 的 chunk 对象内容在 .content 中
+            if chunk.content:
+                yield chunk.content
+
     def get_question_type(self, question: str) -> str:
         """判断问题类型"""
         statistical_keywords = [

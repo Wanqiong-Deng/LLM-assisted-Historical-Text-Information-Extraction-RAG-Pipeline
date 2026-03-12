@@ -240,7 +240,7 @@ with main_tab1:
                         'status': '✓ 完成',
                         'details': f"{user_query} → {query_normalized}" if user_query != query_normalized else "无需转换"
                     })
-                    
+
                     # Step 3: 混合检索
                     if q_type != "statistical":
                         step_start = time.time()
@@ -258,7 +258,16 @@ with main_tab1:
                     
                     # Step 4: LLM生成
                     step_start = time.time()
-                    answer = rag.query(user_query)
+                    enable_streaming = True
+                    st.markdown("### 📖 回答")
+                    if enable_streaming:
+                        response_generator = rag.query(user_query, stream=True)
+                        answer = st.write_stream(response_generator)
+                    else:
+                        with st.spinner("💭 正在生成..."):
+                             answer = rag.query(user_query, stream=False)
+                        st.markdown(answer)
+
                     llm_time = time.time() - step_start
                     
                     trace_steps.append({
@@ -292,9 +301,6 @@ with main_tab1:
                         metrics['avg_similarity'] = alpha * max_sim + (1 - alpha) * metrics['avg_similarity']
                     metrics['avg_response_time'] = alpha * total_time + (1 - alpha) * metrics['avg_response_time']
                     
-                    # 显示结果
-                    st.markdown("### 📖 回答")
-                    st.markdown(answer)
                     
                     # 显示trace摘要
                     st.markdown("---")
