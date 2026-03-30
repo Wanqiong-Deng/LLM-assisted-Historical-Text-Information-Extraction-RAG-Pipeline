@@ -51,9 +51,10 @@ class HTMLToTextConverter:
 
 def main():
     
-    input_path = "/Users/johnjennings/Desktop/地名自动化/"
-    output_path = "/Users/johnjennings/Desktop/地名自动化/database"
+    input_path = Config.HTML_INPUT_DIR
+    output_path = Config.DATABASE_DIR
     
+    Config.ensure_dirs()
     converter = HTMLToTextConverter(input_path, output_path)
     stats = converter.convert_all()
     
