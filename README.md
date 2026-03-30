@@ -180,3 +180,128 @@ The web UI will be available at http://localhost:4200.
 cd backend
 mvn test
 ```
+
+---
+
+## 中文使用说明
+
+### 1. 我的原始数据应该放在哪里？
+
+本项目支持两种使用模式：
+
+#### 方式一：Java + Angular 网页版（推荐）
+
+**无需手动放置文件。** 直接通过网页界面上传 HTML 文件：
+
+1. 启动后端和前端（见下方步骤）
+2. 打开浏览器访问 http://localhost:4200
+3. 点击 **📄 Pipeline** 标签页
+4. 点击上传按钮，选择从 [ctext.org](https://ctext.org) 下载的 HTML 文件
+5. 系统会自动解析并提取地名信息
+
+#### 方式二：Python 脚本版（原始版本，`src/` 目录）
+
+将从 ctext.org 下载的 **HTML 文件**放入以下目录：
+
+```
+src/
+└── data/
+    └── raw_html/    ← 把你的 .html 文件放在这里
+        ├── 1.html
+        ├── 2.html
+        └── ...
+```
+
+> **注意**：这是 `src/data/raw_html/` 文件夹，与 `src/database/`（转换后的文本输出目录）同级。
+
+---
+
+### 2. 怎么跑这个项目？
+
+#### 方式一：Java + Angular 网页版（推荐）
+
+**第 1 步：配置 LLM API Key**
+
+编辑 `backend/src/main/resources/application.properties`，填入你的 API Key：
+
+```properties
+llm.api.key=你的API密钥
+llm.api.base-url=https://api.siliconflow.cn/v1
+llm.classification.model=Qwen/Qwen2.5-7B-Instruct
+llm.rag.model=Qwen/Qwen2.5-72B-Instruct
+```
+
+**第 2 步：启动后端**（需要 Java 17+ 和 Maven 3.8+）
+
+```bash
+cd backend
+mvn spring-boot:run
+```
+
+后端运行在 http://localhost:8080
+
+**第 3 步：启动前端**（需要 Node.js 18+ 和 Angular CLI）
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+前端运行在 http://localhost:4200
+
+**第 4 步：使用网页界面**
+
+浏览器打开 http://localhost:4200，依次使用以下四个功能：
+
+| 标签页 | 功能 | 操作 |
+|--------|------|------|
+| 📄 Pipeline | 上传并解析 HTML 文件 | 点击上传，选择 ctext 格式 HTML 文件 |
+| 🏷️ Classification | 对地名记录分类 | 点击"运行分类"按钮 |
+| 📊 Analysis | 统计分析 | 点击"运行分析"按钮 |
+| 💬 RAG Chat | 自然语言问答 | 直接输入问题 |
+
+---
+
+#### 方式二：Python 脚本版（`src/` 目录）
+
+**前提条件：** Python 3.9+，安装依赖：
+
+```bash
+pip install beautifulsoup4 pandas langchain langchain-openai langgraph opencc-python-reimplemented jieba rank-bm25 streamlit plotly langsmith
+```
+
+**第 1 步：配置 API Key**
+
+编辑 `src/config.py`，填入你的 API Key：
+
+```python
+API_KEY = "你的API密钥"
+API_BASE_URL = "https://api.siliconflow.cn/v1"
+```
+
+**第 2 步：将 HTML 文件放入 `data/raw_html/` 目录**（见上方说明）
+
+**第 3 步：运行完整流程**
+
+```bash
+# 进入 src 目录
+cd src
+
+# 步骤一：将 HTML 转换为纯文本（输出到 src/database/）
+python conversion/html_converter.py
+
+# 步骤二：提取地名记录
+python extraction/placename_extractor.py
+
+# 步骤三：运行分类
+python classification/llm_classifier.py
+
+# 步骤四：统计分析
+python analysis/data_analyzer.py
+
+# 步骤五：启动 RAG Agent 界面（Streamlit）
+streamlit run App.py
+```
+
+RAG 界面会在浏览器中打开（通常是 http://localhost:8501）。

@@ -41,6 +41,8 @@ class Config:
     # ==================== 路径配置 ====================
     
     # 输入输出目录
+    # 原始HTML数据目录（将ctext下载的HTML文件放在此目录中）
+    HTML_INPUT_DIR = str(PROJECT_ROOT / "data" / "raw_html")
     DATABASE_DIR = str(PROJECT_ROOT / "database")
     RESULTS_DIR = str(PROJECT_ROOT / "results")
     
@@ -122,6 +124,7 @@ class Config:
     @classmethod
     def ensure_dirs(cls):
         """确保目录存在"""
+        Path(cls.HTML_INPUT_DIR).mkdir(parents=True, exist_ok=True)
         Path(cls.DATABASE_DIR).mkdir(exist_ok=True)
         Path(cls.RESULTS_DIR).mkdir(exist_ok=True)
     

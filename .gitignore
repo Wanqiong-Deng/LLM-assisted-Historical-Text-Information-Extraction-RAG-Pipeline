@@ -214,6 +214,10 @@ database/
 *.csv
 .env
 
+# Raw HTML input data (keep directory structure, ignore data files)
+src/data/raw_html/*
+!src/data/raw_html/.gitkeep
+
 # Java / Maven build artifacts
 backend/target/
 backend/data/
