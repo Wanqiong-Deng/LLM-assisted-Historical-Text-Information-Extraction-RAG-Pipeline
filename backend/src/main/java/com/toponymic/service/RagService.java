@@ -13,20 +13,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
  * Service for Retrieval-Augmented Generation (RAG) based semantic search and Q&A.
  * Mirrors the functionality of Python's rag_agent.py.
  *
- * Note: conversationHistory is shared across all requests. For multi-user production use,
- * replace with a session-scoped or per-user conversation store.
+ * Conversation history is stored per-session using a sessionId key.
+ * Callers must supply a stable sessionId (e.g. from the HTTP session or a UUID
+ * generated on the frontend) so that multiple users do not share state.
  */
 @Service
 public class RagService {
 
     private static final Logger log = LoggerFactory.getLogger(RagService.class);
+    private static final int MAX_HISTORY_PER_SESSION = 20;
 
     private static final String RAG_SYSTEM_PROMPT =
         "你是一个专业的古代地名研究助手，专门分析历史文献中的地名命名解释。\n" +
@@ -44,8 +46,8 @@ public class RagService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Thread-safe conversation history for multi-turn Q&A (single-session design)
-    private final List<Map<String, String>> conversationHistory = new CopyOnWriteArrayList<>();
+    // Per-session conversation histories keyed by sessionId
+    private final Map<String, List<Map<String, String>>> sessionHistories = new ConcurrentHashMap<>();
 
     /**
      * Search for relevant records using keyword matching (BM25-like retrieval).
@@ -85,9 +87,13 @@ public class RagService {
      * Answer a user query using RAG: retrieve relevant documents and generate answer.
      *
      * @param userQuery the user's question
+     * @param sessionId unique session identifier (from frontend)
      * @return generated answer with context
      */
-    public Map<String, Object> query(String userQuery) {
+    public Map<String, Object> query(String userQuery, String sessionId) {
+        List<Map<String, String>> history = sessionHistories
+            .computeIfAbsent(sessionId, k -> new ArrayList<>());
+
         // Retrieve relevant documents
         List<ClassificationResult> docs = retrieveRelevantDocs(userQuery, 5);
 
@@ -107,25 +113,28 @@ public class RagService {
             ? userQuery
             : String.format("根据以下参考文献回答问题：\n\n%s\n\n问题：%s", context, userQuery);
 
-        // Add to conversation history
-        conversationHistory.add(Map.of("role", "user", "content", prompt));
+        synchronized (history) {
+            history.add(Map.of("role", "user", "content", prompt));
+        }
 
         // Generate answer via LLM
         String answer;
         try {
-            answer = callRagLlm(new ArrayList<>(conversationHistory));
+            List<Map<String, String>> snapshot;
+            synchronized (history) {
+                snapshot = new ArrayList<>(history);
+            }
+            answer = callRagLlm(snapshot);
         } catch (Exception e) {
             log.error("RAG LLM call failed: {}", e.getMessage());
             answer = "抱歉，无法生成回答。请检查API配置。";
         }
 
-        // Add assistant response to history
-        conversationHistory.add(Map.of("role", "assistant", "content", answer));
-
-        // Limit history to last 20 entries (10 turns)
-        synchronized (conversationHistory) {
-            while (conversationHistory.size() > 20) {
-                conversationHistory.remove(0);
+        synchronized (history) {
+            history.add(Map.of("role", "assistant", "content", answer));
+            // Limit history to last MAX_HISTORY_PER_SESSION entries
+            while (history.size() > MAX_HISTORY_PER_SESSION) {
+                history.remove(0);
             }
         }
 
@@ -140,18 +149,26 @@ public class RagService {
     }
 
     /**
-     * Clear conversation history.
+     * Clear conversation history for a session.
+     *
+     * @param sessionId unique session identifier
      */
-    public void clearHistory() {
-        conversationHistory.clear();
-        log.info("Conversation history cleared");
+    public void clearHistory(String sessionId) {
+        sessionHistories.remove(sessionId);
+        log.info("Conversation history cleared for session {}", sessionId);
     }
 
     /**
-     * Get current conversation history.
+     * Get current conversation history for a session.
+     *
+     * @param sessionId unique session identifier
      */
-    public List<Map<String, String>> getConversationHistory() {
-        return Collections.unmodifiableList(conversationHistory);
+    public List<Map<String, String>> getConversationHistory(String sessionId) {
+        List<Map<String, String>> history = sessionHistories.get(sessionId);
+        if (history == null) return Collections.emptyList();
+        synchronized (history) {
+            return Collections.unmodifiableList(new ArrayList<>(history));
+        }
     }
 
     private String callRagLlm(List<Map<String, String>> messages) {

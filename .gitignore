@@ -213,3 +213,20 @@ results/
 database/
 *.csv
 .env
+
+# Java / Maven build artifacts
+backend/target/
+backend/data/
+*.class
+*.jar
+*.war
+
+# Angular / Node build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/out-tsc/
+
+# IDE files
+.idea/
+*.iml

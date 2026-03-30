@@ -4,12 +4,13 @@ import { Observable } from 'rxjs';
 import { PlacenameRecord } from '../models/placename-record.model';
 import { ClassificationResult, ClassificationStats, ClassificationType } from '../models/classification-result.model';
 import { AnalysisInsight } from '../models/analysis-insight.model';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ApiService {
-  private readonly baseUrl = 'http://localhost:8080/api';
+  private readonly baseUrl = environment.apiBaseUrl;
 
   constructor(private http: HttpClient) {}
 
