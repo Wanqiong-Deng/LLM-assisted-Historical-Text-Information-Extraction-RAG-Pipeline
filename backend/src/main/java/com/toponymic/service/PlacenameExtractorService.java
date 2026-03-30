@@ -32,6 +32,11 @@ public class PlacenameExtractorService {
 
     private static final int MAX_CONTEXT_CHARS = 200;
 
+    // Precompiled patterns for each place suffix to avoid repeated compilation
+    private static final List<Pattern> PLACE_SUFFIX_PATTERNS = AppConfig.PLACE_SUFFIXES.stream()
+        .map(suffix -> Pattern.compile("([\\u4e00-\\u9fff]{1,4}" + suffix + ")"))
+        .toList();
+
     @Autowired
     private PlacenameRecordRepository repository;
 
@@ -74,9 +79,7 @@ public class PlacenameExtractorService {
         String cleaned = cleanLineStart(line);
         if (cleaned.isEmpty()) return null;
 
-        for (String suffix : AppConfig.PLACE_SUFFIXES) {
-            // Look for characters immediately before the suffix
-            Pattern pattern = Pattern.compile("([\\u4e00-\\u9fff]{1,4}" + suffix + ")");
+        for (Pattern pattern : PLACE_SUFFIX_PATTERNS) {
             Matcher matcher = pattern.matcher(cleaned);
             if (matcher.find()) {
                 return matcher.group(1);

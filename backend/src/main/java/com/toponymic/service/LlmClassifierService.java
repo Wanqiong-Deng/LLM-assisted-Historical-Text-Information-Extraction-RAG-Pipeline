@@ -153,9 +153,10 @@ public class LlmClassifierService {
             }
 
             // Parse evidence span
-            int evidenceIndex = content.indexOf("证据：");
+            String evidenceMarker = "证据：";
+            int evidenceIndex = content.indexOf(evidenceMarker);
             if (evidenceIndex >= 0) {
-                evidenceSpan = content.substring(evidenceIndex + 3).trim();
+                evidenceSpan = content.substring(evidenceIndex + evidenceMarker.length()).trim();
             }
 
             ClassificationResult result = new ClassificationResult(

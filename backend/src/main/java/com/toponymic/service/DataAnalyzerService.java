@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -26,13 +27,19 @@ public class DataAnalyzerService {
 
     private static final Logger log = LoggerFactory.getLogger(DataAnalyzerService.class);
 
-    // STRONG subtype patterns
-    private static final Map<String, String> STRONG_SUBTYPE_PATTERNS = Map.of(
-        "因山水得名", "因.*?[山水].*?名",
-        "因地形得名", "因.*?[形地峰嶺谷].*?名",
-        "因人物得名", "因.*?[人氏族姓].*?名",
-        "直接命名", "故名|取.*?義|以.*?為名"
-    );
+    // STRONG subtype patterns - precompiled for efficiency
+    private static final Map<String, Pattern> STRONG_SUBTYPE_PATTERNS;
+    static {
+        Map<String, String> rawPatterns = Map.of(
+            "因山水得名", ".*因.*?[山水].*?名.*",
+            "因地形得名", ".*因.*?[形地峰嶺谷].*?名.*",
+            "因人物得名", ".*因.*?[人氏族姓].*?名.*",
+            "直接命名", ".*(故名|取.*?義|以.*?為名).*"
+        );
+        Map<String, Pattern> compiled = new LinkedHashMap<>();
+        rawPatterns.forEach((k, v) -> compiled.put(k, Pattern.compile(v)));
+        STRONG_SUBTYPE_PATTERNS = Collections.unmodifiableMap(compiled);
+    }
 
     // WEAK source indicators
     private static final List<String> WEAK_SOURCE_INDICATORS = List.of(
@@ -104,8 +111,8 @@ public class DataAnalyzerService {
 
         for (ClassificationResult cr : strongResults) {
             String evidence = Optional.ofNullable(cr.getEvidenceSpan()).orElse("");
-            for (Map.Entry<String, String> entry : STRONG_SUBTYPE_PATTERNS.entrySet()) {
-                if (evidence.matches(".*" + entry.getValue() + ".*")) {
+            for (Map.Entry<String, Pattern> entry : STRONG_SUBTYPE_PATTERNS.entrySet()) {
+                if (entry.getValue().matcher(evidence).matches()) {
                     subtypeCounts.merge(entry.getKey(), 1, Integer::sum);
                 }
             }

@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
 
 /**
@@ -36,10 +36,22 @@ public class PipelineController {
     @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadAndProcess(
             @RequestParam("file") MultipartFile file) {
+        Path tempDir = null;
         try {
-            // Save uploaded file temporarily
-            Path tempDir = Files.createTempDirectory("toponymic-upload-");
-            Path uploadedFile = tempDir.resolve(file.getOriginalFilename());
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || originalFilename.isBlank()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "File must have a valid name"));
+            }
+            if (!originalFilename.toLowerCase().endsWith(".html")
+                    && !originalFilename.toLowerCase().endsWith(".htm")) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Only HTML files are accepted"));
+            }
+
+            // Save uploaded file to a temp directory scoped to this request
+            tempDir = Files.createTempDirectory("toponymic-upload-");
+            Path uploadedFile = tempDir.resolve(originalFilename);
             file.transferTo(uploadedFile.toFile());
 
             // Convert HTML to text
@@ -47,16 +59,16 @@ public class PipelineController {
 
             // Save text to temp file
             Path textFile = tempDir.resolve(
-                file.getOriginalFilename().replaceAll("\\.(html|htm)$", ".txt")
+                originalFilename.replaceAll("\\.(html|htm)$", ".txt")
             );
             Files.writeString(textFile, text);
 
             // Extract placenames
-            var records = placenameExtractorService.extractFromFile(textFile, file.getOriginalFilename());
+            var records = placenameExtractorService.extractFromFile(textFile, originalFilename);
 
             return ResponseEntity.ok(Map.of(
                 "message", "File processed successfully",
-                "sourceFile", file.getOriginalFilename(),
+                "sourceFile", originalFilename,
                 "recordsExtracted", records.size(),
                 "textPreview", text.length() > 500 ? text.substring(0, 500) + "..." : text
             ));
@@ -65,6 +77,30 @@ public class PipelineController {
             log.error("Failed to process uploaded file: {}", e.getMessage());
             return ResponseEntity.internalServerError()
                 .body(Map.of("error", "File processing failed: " + e.getMessage()));
+        } finally {
+            if (tempDir != null) {
+                deleteTempDir(tempDir);
+            }
+        }
+    }
+
+    private void deleteTempDir(Path dir) {
+        try {
+            Files.walkFileTree(dir, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException {
+                    Files.delete(d);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            log.warn("Failed to clean up temp directory {}: {}", dir, e.getMessage());
         }
     }
 

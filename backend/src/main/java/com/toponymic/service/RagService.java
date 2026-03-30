@@ -13,11 +13,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
  * Service for Retrieval-Augmented Generation (RAG) based semantic search and Q&A.
  * Mirrors the functionality of Python's rag_agent.py.
+ *
+ * Note: conversationHistory is shared across all requests. For multi-user production use,
+ * replace with a session-scoped or per-user conversation store.
  */
 @Service
 public class RagService {
@@ -40,8 +44,8 @@ public class RagService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // In-memory conversation history for multi-turn Q&A
-    private final List<Map<String, String>> conversationHistory = new ArrayList<>();
+    // Thread-safe conversation history for multi-turn Q&A (single-session design)
+    private final List<Map<String, String>> conversationHistory = new CopyOnWriteArrayList<>();
 
     /**
      * Search for relevant records using keyword matching (BM25-like retrieval).
@@ -109,7 +113,7 @@ public class RagService {
         // Generate answer via LLM
         String answer;
         try {
-            answer = callRagLlm(conversationHistory);
+            answer = callRagLlm(new ArrayList<>(conversationHistory));
         } catch (Exception e) {
             log.error("RAG LLM call failed: {}", e.getMessage());
             answer = "抱歉，无法生成回答。请检查API配置。";
@@ -118,9 +122,11 @@ public class RagService {
         // Add assistant response to history
         conversationHistory.add(Map.of("role", "assistant", "content", answer));
 
-        // Limit history to last 10 turns
-        if (conversationHistory.size() > 20) {
-            conversationHistory.subList(0, conversationHistory.size() - 20).clear();
+        // Limit history to last 20 entries (10 turns)
+        synchronized (conversationHistory) {
+            while (conversationHistory.size() > 20) {
+                conversationHistory.remove(0);
+            }
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
