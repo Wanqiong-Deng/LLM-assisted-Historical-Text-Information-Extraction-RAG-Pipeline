@@ -1,0 +1,113 @@
+<div class="card">
+  <h2>📊 步骤三：数据分析</h2>
+
+  <div style="margin-bottom: 16px;">
+    <button class="btn btn-primary" (click)="runAnalysis()" [disabled]="isRunning">
+      @if (isRunning) {
+        <span class="loading-spinner"></span> 分析中...
+      } @else {
+        📊 运行分析
+      }
+    </button>
+    <span style="color: #666; font-size: 0.85rem; margin-left: 10px;">
+      对所有分类结果执行统计分析（分布、子类型、引用来源等）
+    </span>
+  </div>
+
+  @if (runMessage) {
+    <div class="alert alert-success">✅ {{ runMessage }}</div>
+  }
+
+  @if (error) {
+    <div class="alert alert-error">❌ {{ error }}</div>
+  }
+</div>
+
+@if (isLoading) {
+  <div class="card">
+    <div class="alert alert-info">⏳ 加载分析数据...</div>
+  </div>
+} @else if (insights.length === 0) {
+  <div class="card">
+    <div class="alert alert-info">暂无分析数据。请先运行分类，然后点击"运行分析"。</div>
+  </div>
+} @else {
+  @for (insight of insights; track insight.id) {
+    <div class="card">
+      <h2>{{ getInsightIcon(insight.insightType) }} {{ insight.title }}</h2>
+
+      <p style="color: #555; margin-bottom: 16px; font-size: 0.95rem;">
+        {{ insight.description }}
+      </p>
+
+      @let data = parseDataJson(insight.dataJson);
+      @if (data) {
+        @if (data.counts) {
+          <div class="status-bar">
+            @for (entry of objectEntries(data.counts); track entry[0]) {
+              <div class="status-item">
+                <span class="value">{{ entry[1] }}</span>
+                <span class="label">{{ entry[0] }}</span>
+              </div>
+            }
+          </div>
+
+          @if (data.percentages) {
+            <div style="margin-top: 12px;">
+              @for (entry of objectEntries(data.percentages); track entry[0]) {
+                <div style="margin-bottom: 8px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 3px;">
+                    <span>{{ entry[0] }}</span>
+                    <span>{{ entry[1] | number:'1.1-1' }}%</span>
+                  </div>
+                  <div style="height: 8px; background: #e8eaf6; border-radius: 4px; overflow: hidden;">
+                    <div [style.width.%]="entry[1]"
+                         [style.background]="entry[0] === 'STRONG' ? '#2e7d32' : entry[0] === 'WEAK' ? '#e65100' : '#9e9e9e'"
+                         style="height: 100%; border-radius: 4px; transition: width 0.5s;"></div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        }
+
+        @if (data.subtypes) {
+          <table class="data-table" style="margin-top: 8px;">
+            <thead><tr><th>子类型</th><th>数量</th></tr></thead>
+            <tbody>
+              @for (entry of objectEntries(data.subtypes); track entry[0]) {
+                <tr><td>{{ entry[0] }}</td><td>{{ entry[1] }}</td></tr>
+              }
+            </tbody>
+          </table>
+        }
+
+        @if (data.sources) {
+          <table class="data-table" style="margin-top: 8px;">
+            <thead><tr><th>引用来源</th><th>出现次数</th></tr></thead>
+            <tbody>
+              @for (entry of objectEntries(data.sources); track entry[0]) {
+                <tr><td>{{ entry[0] }}</td><td>{{ entry[1] }}</td></tr>
+              }
+            </tbody>
+          </table>
+        }
+
+        @if (data.directionMentions) {
+          <table class="data-table" style="margin-top: 8px;">
+            <thead><tr><th>方位词</th><th>出现次数</th></tr></thead>
+            <tbody>
+              @for (entry of objectEntries(data.directionMentions); track entry[0]) {
+                <tr><td>{{ entry[0] }}</td><td>{{ entry[1] }}</td></tr>
+              }
+            </tbody>
+          </table>
+        }
+      }
+
+      <div style="margin-top: 12px; font-size: 0.78rem; color: #999;">
+        生成时间：{{ insight.createdAt | date:'yyyy-MM-dd HH:mm:ss' }}
+      </div>
+    </div>
+  }
+}

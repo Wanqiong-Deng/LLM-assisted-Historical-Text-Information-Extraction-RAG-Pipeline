@@ -1,0 +1,109 @@
+<div class="card">
+  <h2>🏷️ 步骤二：LLM 分类（STRONG / WEAK / NONE）</h2>
+
+  @if (stats) {
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="value" style="color: #1b5e20;">{{ stats.distribution?.STRONG ?? 0 }}</span>
+        <span class="label">STRONG</span>
+      </div>
+      <div class="status-item">
+        <span class="value" style="color: #e65100;">{{ stats.distribution?.WEAK ?? 0 }}</span>
+        <span class="label">WEAK</span>
+      </div>
+      <div class="status-item">
+        <span class="value" style="color: #616161;">{{ stats.distribution?.NONE ?? 0 }}</span>
+        <span class="label">NONE</span>
+      </div>
+      <div class="status-item">
+        <span class="value">{{ stats.total }}</span>
+        <span class="label">总计</span>
+      </div>
+    </div>
+  }
+
+  <div style="margin-bottom: 16px;">
+    <button class="btn btn-primary" (click)="runClassification()" [disabled]="isRunning">
+      @if (isRunning) {
+        <span class="loading-spinner"></span> 分类中...
+      } @else {
+        ▶ 运行分类
+      }
+    </button>
+    <span style="color: #666; font-size: 0.85rem; margin-left: 10px;">
+      对所有未分类记录执行 Regex + LLM 两阶段分类
+    </span>
+  </div>
+
+  @if (runResult) {
+    <div class="alert alert-success">
+      ✅ 分类完成：STRONG {{ runResult.STRONG }}，WEAK {{ runResult.WEAK }}，NONE {{ runResult.NONE }}
+    </div>
+  }
+
+  @if (error) {
+    <div class="alert alert-error">❌ {{ error }}</div>
+  }
+</div>
+
+<div class="card">
+  <h2>📋 分类结果</h2>
+
+  <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+    <button class="btn" [class.btn-primary]="activeFilter === 'ALL'"
+            [class.btn-secondary]="activeFilter !== 'ALL'"
+            (click)="loadResults('ALL')">全部</button>
+    <button class="btn" [class.btn-primary]="activeFilter === 'STRONG'"
+            [class.btn-secondary]="activeFilter !== 'STRONG'"
+            (click)="loadResults('STRONG')">STRONG</button>
+    <button class="btn" [class.btn-primary]="activeFilter === 'WEAK'"
+            [class.btn-secondary]="activeFilter !== 'WEAK'"
+            (click)="loadResults('WEAK')">WEAK</button>
+    <button class="btn" [class.btn-primary]="activeFilter === 'NONE'"
+            [class.btn-secondary]="activeFilter !== 'NONE'"
+            (click)="loadResults('NONE')">NONE</button>
+  </div>
+
+  @if (isLoading) {
+    <div class="alert alert-info">⏳ 加载中...</div>
+  } @else if (results.length === 0) {
+    <div class="alert alert-info">暂无分类结果。请先运行分类。</div>
+  } @else {
+    <div style="overflow-x: auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>地名</th>
+            <th>分类</th>
+            <th>方法</th>
+            <th>证据片段</th>
+            <th>上下文</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (result of results; track result.id) {
+            <tr>
+              <td><strong>{{ result.placenameRecord?.placename }}</strong></td>
+              <td>
+                <span [class]="getBadgeClass(result.classification)">
+                  {{ result.classification }}
+                </span>
+              </td>
+              <td style="font-size: 0.8rem; color: #666;">{{ result.classificationMethod }}</td>
+              <td style="font-size: 0.85rem; max-width: 200px;">{{ result.evidenceSpan }}</td>
+              <td style="font-size: 0.82rem; max-width: 350px; color: #555;">
+                {{ result.placenameRecord?.contextText | slice:0:100 }}
+                @if ((result.placenameRecord?.contextText?.length ?? 0) > 100) {
+                  <span style="color: #999;">...</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">
+      显示 {{ results.length }} 条结果
+    </div>
+  }
+</div>

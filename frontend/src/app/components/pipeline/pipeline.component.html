@@ -1,0 +1,92 @@
+<div class="card">
+  <h2>📄 步骤一：数据导入与地名提取</h2>
+
+  @if (status) {
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="value">{{ status.totalRecords }}</span>
+        <span class="label">总记录数</span>
+      </div>
+      @if (status.sourceFiles) {
+        <div class="status-item">
+          <span class="value">{{ status.sourceFiles.length }}</span>
+          <span class="label">来源文件</span>
+        </div>
+      }
+    </div>
+  }
+
+  <div style="margin-bottom: 16px;">
+    <label for="fileInput" class="btn btn-primary" style="cursor: pointer;">
+      @if (isUploading) {
+        <span class="loading-spinner"></span> 上传中...
+      } @else {
+        📂 上传HTML文件
+      }
+    </label>
+    <input id="fileInput" type="file" accept=".html,.htm" style="display:none;"
+           (change)="onFileSelected($event)" [disabled]="isUploading">
+    <span style="color: #666; font-size: 0.85rem; margin-left: 10px;">
+      支持 .html / .htm 格式（ctext 古籍格式）
+    </span>
+  </div>
+
+  @if (uploadResult) {
+    <div class="alert alert-success">
+      ✅ 成功处理 <strong>{{ uploadResult.sourceFile }}</strong>，
+      提取了 <strong>{{ uploadResult.recordsExtracted }}</strong> 条地名记录
+    </div>
+  }
+
+  @if (error) {
+    <div class="alert alert-error">❌ {{ error }}</div>
+  }
+</div>
+
+<div class="card">
+  <h2>🗂️ 地名记录列表</h2>
+
+  <div class="search-bar">
+    <input type="text" placeholder="搜索地名..." [(ngModel)]="searchQuery"
+           (keyup.enter)="search()">
+    <button class="btn btn-primary" (click)="search()">搜索</button>
+    <button class="btn btn-secondary" (click)="clearSearch()">清除</button>
+  </div>
+
+  @if (isLoading) {
+    <div class="alert alert-info">⏳ 加载中...</div>
+  } @else if (records.length === 0) {
+    <div class="alert alert-info">暂无记录。请先上传HTML文件以提取地名。</div>
+  } @else {
+    <div style="overflow-x: auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>地名</th>
+            <th>上下文文本</th>
+            <th>来源文件</th>
+            <th>行号</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (record of records; track record.id) {
+            <tr>
+              <td>{{ record.id }}</td>
+              <td><strong>{{ record.placename }}</strong></td>
+              <td style="max-width: 400px; font-size: 0.85rem;">
+                {{ record.contextText | slice:0:120 }}
+                @if ((record.contextText?.length ?? 0) > 120) { <span style="color: #999;">...</span> }
+              </td>
+              <td>{{ record.sourceFile }}</td>
+              <td>{{ record.lineNumber }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">
+      共 {{ records.length }} 条记录
+    </div>
+  }
+</div>
